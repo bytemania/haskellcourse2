@@ -18,11 +18,15 @@ module Lib
     , playGame
     , formatGame
     , completed
+    , makeRandomGrid
+    , fillInBlanks
     ) where
 
 import Data.List (isInfixOf, transpose)
 import Data.Maybe (catMaybes, listToMaybe)
 import qualified Data.Map as M
+import System.Random
+import Data.Char (toLower)
 
 data Game = Game {
               gameGrid :: Grid Cell,
@@ -64,14 +68,36 @@ playGame game word =
                 newDict = M.insert word foundWord dict
             in game { gameWords = newDict}
 
-formatGame :: Game -> String
-formatGame game =
+formatGameGrid :: Game -> String
+formatGameGrid game =
   let grid = gameGrid game
-  in formatGrid grid
-      ++ "\n\n"
-      ++ (show $ score game)
-      ++ "/"
-      ++ (show $ totalWords game)
+      dict = gameWords game :: M.Map String (Maybe [Cell])
+      cellSet = concat . catMaybes . M.elems $ dict
+      formatCell cell =
+        let char = cell2char cell
+        in if cell `elem` cellSet then char else toLower char
+      charGrid = mapOverGrid formatCell grid
+  in unlines charGrid
+
+formatGame :: Game -> String
+formatGame game = formatGameGrid game
+                    ++ "\n\n"
+                    ++ (show $ score game)
+                    ++ "/"
+                    ++ (show $ totalWords game)
+
+makeRandomGrid :: RandomGen g => g -> [[Char]]
+makeRandomGrid gen =
+  let (gen1, gen2) = split gen
+      row = randomRs ('A', 'Z') gen1
+  in row : makeRandomGrid gen2
+
+fillInBlanks:: RandomGen g => g -> Grid Char -> Grid Char
+fillInBlanks gen grid =
+    let r = makeRandomGrid gen
+        fill '_' r = r
+        fill c  _ = c
+    in zipOverGridWith fill grid r
 
 zipOverGrid :: Grid a -> Grid b -> Grid (a,b)
 zipOverGrid = zipWith zip
